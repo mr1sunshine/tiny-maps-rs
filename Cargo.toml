@@ -1,0 +1,23 @@
+[package]
+name = "tiny_maps"
+version = "0.1.0"
+authors = ["Aleksandr Ovchinnikov <mail@mr1sunshine.com>"]
+edition = "2018"
+description = "Tiny Maps with Rust."
+readme = "README.md"
+repository = "https://https://github.com/mr1sunshine/mapbox-maps-rs"
+license-file = "LICENSE"
+keywords = ["maps", "openstreetmap"]
+categories = ["multimedia"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eyre = "0.6.2"
+reqwest = { version = "0.10.8", features = ["blocking", "gzip"] }
+tokio = { version = "0.2.22", features = ["macros", "tcp", "dns", "io-util"] }
+winit = "0.23.0"
+wgpu = "0.6.0"
+futures = "0.3.7"
+bytes = "0.5.0"
+
