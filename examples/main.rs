@@ -1,20 +1,15 @@
 use eyre::Result;
 use futures::executor::block_on;
-use std::rc::Rc;
-use winit::{
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-};
+use winit::{dpi::PhysicalSize, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::WindowBuilder};
 use tiny_maps::Map;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop)?;
-    // let window = Rc::new(window);
+    window.set_inner_size(PhysicalSize::new(800, 800));
 
-    let mut map = Map::new(-0.15, 51.502, 0, &window).await?;
+    let mut map = Map::new(-0.15, 51.502, 15, &window).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
