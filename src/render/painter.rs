@@ -6,12 +6,13 @@ use bytes::Bytes;
 use eyre::Result;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BackendBit, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferUsage, Color,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp,
-    Operations, PowerPreference, PresentMode, Queue, RenderPassColorAttachmentDescriptor,
-    RenderPassDescriptor, RequestAdapterOptions, ShaderStage, Surface, SwapChain,
-    SwapChainDescriptor, TextureComponentType, TextureFormat, TextureUsage, TextureViewDimension,
+    BackendBit, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
+    BufferUsage, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
+    Limits, LoadOp, Operations, PowerPreference, PresentMode, Queue,
+    RenderPassColorAttachmentDescriptor, RenderPassDescriptor, RequestAdapterOptions, ShaderStage,
+    Surface, SwapChain, SwapChainDescriptor, TextureComponentType, TextureFormat, TextureUsage,
+    TextureViewDimension,
 };
 use winit::window::Window;
 
@@ -49,10 +50,11 @@ pub(crate) struct Painter {
     #[allow(dead_code)]
     texture: Texture,
     pipeline: Pipeline,
+    bind_group_layout: BindGroupLayout,
 }
 
 impl Painter {
-    pub async fn new(window: &Window) -> Result<Self> {
+    pub async fn new(window: &Window, textures: &[Vec<Bytes>]) -> Result<Self> {
         let size = window.inner_size();
         let instance = Instance::new(BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
@@ -87,47 +89,30 @@ impl Painter {
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStage::FRAGMENT,
-                        ty: BindingType::SampledTexture {
-                            multisampled: false,
-                            dimension: TextureViewDimension::D2,
-                            component_type: TextureComponentType::Uint,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStage::FRAGMENT,
-                        ty: BindingType::Sampler { comparison: false },
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let cartoon_bytes = include_bytes!("happy-tree-cartoon.png");
-        let texture =
-            Texture::from_bytes(&device, &queue, cartoon_bytes, "happy-tree-cartoon.png")?;
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
-                BindGroupEntry {
+                BindGroupLayoutEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture.view),
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::SampledTexture {
+                        multisampled: false,
+                        dimension: TextureViewDimension::D2,
+                        component_type: TextureComponentType::Uint,
+                    },
+                    count: None,
                 },
-                BindGroupEntry {
+                BindGroupLayoutEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&texture.sampler),
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler { comparison: false },
+                    count: None,
                 },
             ],
-            label: Some("cartoon_bind_group"),
+            label: Some("texture_bind_group_layout"),
         });
+
+        let (texture, bind_group) =
+            Painter::create_texture_and_bind_group(&device, &queue, &bind_group_layout, textures)?;
 
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -141,11 +126,7 @@ impl Painter {
         });
         let num_indices = INDICES.len() as u32;
 
-        let pipeline = Pipeline::new(
-            &device,
-            TextureFormat::Bgra8UnormSrgb,
-            &texture_bind_group_layout,
-        );
+        let pipeline = Pipeline::new(&device, TextureFormat::Bgra8UnormSrgb, &bind_group_layout);
 
         Ok(Self {
             device,
@@ -159,58 +140,46 @@ impl Painter {
             index_buffer,
             num_indices,
             pipeline,
+            bind_group_layout,
         })
     }
 
-    pub fn load_textures(&mut self, textures: &Vec<Vec<Bytes>>) -> Result<()> {
-        let texture_bind_group_layout =
-            self.device
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    entries: &[
-                        BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: ShaderStage::FRAGMENT,
-                            ty: BindingType::SampledTexture {
-                                multisampled: false,
-                                dimension: TextureViewDimension::D2,
-                                component_type: TextureComponentType::Uint,
-                            },
-                            count: None,
-                        },
-                        BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: ShaderStage::FRAGMENT,
-                            ty: BindingType::Sampler { comparison: false },
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
+    fn create_texture_and_bind_group(
+        device: &Device,
+        queue: &Queue,
+        bind_group_layout: &BindGroupLayout,
+        textures: &[Vec<Bytes>],
+    ) -> Result<(Texture, BindGroup)> {
+        let texture = Texture::from_bytes(device, queue, &textures[0][0], "texture")?;
 
-        let cartoon_texture = Texture::from_bytes(
-            &self.device,
-            &self.queue,
-            &textures[0][0],
-            "happy-tree-cartoon.png",
-        )?;
-
-        let cartoon_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&cartoon_texture.view),
+                    resource: BindingResource::TextureView(&texture.view),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(&cartoon_texture.sampler),
+                    resource: BindingResource::Sampler(&texture.sampler),
                 },
             ],
-            label: Some("cartoon_bind_group"),
+            label: Some("bind_group"),
         });
 
-        self.texture = cartoon_texture;
-        self.bind_group = cartoon_bind_group;
+        Ok((texture, bind_group))
+    }
+
+    pub fn load_textures(&mut self, textures: &[Vec<Bytes>]) -> Result<()> {
+        let (texture, bind_group) = Painter::create_texture_and_bind_group(
+            &self.device,
+            &self.queue,
+            &self.bind_group_layout,
+            textures,
+        )?;
+        self.texture = texture;
+        self.bind_group = bind_group;
+
         Ok(())
     }
 
