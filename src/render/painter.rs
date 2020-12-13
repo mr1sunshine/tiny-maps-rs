@@ -133,7 +133,11 @@ impl Painter {
         });
         let num_indices = INDICES.len() as u32;
 
-        let pipeline = Pipeline::new(&device, &sc_desc, &texture_bind_group_layout);
+        let pipeline = Pipeline::new(
+            &device,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
+            &texture_bind_group_layout,
+        );
 
         Ok(Self {
             device,
