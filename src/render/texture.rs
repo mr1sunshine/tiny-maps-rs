@@ -1,7 +1,5 @@
 use eyre::Result;
-use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView};
-use std::io::Cursor;
+use image::GenericImageView;
 
 pub(crate) struct Texture {
     pub texture: wgpu::Texture,
@@ -16,8 +14,6 @@ impl Texture {
         bytes: &[u8],
         label: &str,
     ) -> Result<Self> {
-        // let img = ImageReader::new(Cursor::new(bytes)).decode()?;
-        let img_format = image::guess_format(bytes);
         let img = image::load_from_memory(bytes)?;
         Self::from_image(device, queue, img, Some(label))
     }
@@ -30,7 +26,6 @@ impl Texture {
     ) -> Result<Self> {
         let dimensions = img.dimensions();
         let rgba = img.into_rgba();
-        // let rgba = img.as_rgba8().unwrap();
 
         let size = wgpu::Extent3d {
             width: dimensions.0,
