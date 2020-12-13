@@ -4,7 +4,15 @@ use super::Texture;
 use super::Vertex;
 use bytes::Bytes;
 use eyre::Result;
-use wgpu::util::DeviceExt;
+use wgpu::{
+    util::{BufferInitDescriptor, DeviceExt},
+    BackendBit, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferUsage, Color,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp,
+    Operations, PowerPreference, PresentMode, Queue, RenderPassColorAttachmentDescriptor,
+    RenderPassDescriptor, RequestAdapterOptions, ShaderStage, Surface, SwapChain,
+    SwapChainDescriptor, TextureComponentType, TextureFormat, TextureUsage, TextureViewDimension,
+};
 use winit::window::Window;
 
 const VERTICES: &[Vertex] = &[
@@ -29,14 +37,14 @@ const VERTICES: &[Vertex] = &[
 const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 
 pub(crate) struct Painter {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    swap_chain: wgpu::SwapChain,
-    sc_desc: wgpu::SwapChainDescriptor,
-    surface: wgpu::Surface,
-    bind_group: wgpu::BindGroup,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    device: Device,
+    queue: Queue,
+    swap_chain: SwapChain,
+    sc_desc: SwapChainDescriptor,
+    surface: Surface,
+    bind_group: BindGroup,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
     num_indices: u32,
     #[allow(dead_code)]
     texture: Texture,
@@ -46,11 +54,11 @@ pub(crate) struct Painter {
 impl Painter {
     pub async fn new(window: &Window) -> Result<Self> {
         let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = Instance::new(BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+            .request_adapter(&RequestAdapterOptions {
+                power_preference: PowerPreference::default(),
                 // Request an adapter which can render to our surface
                 compatible_surface: Some(&surface),
             })
@@ -60,42 +68,42 @@ impl Painter {
         // Create the logical device and command queue
         let (device, queue) = adapter
             .request_device(
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                &DeviceDescriptor {
+                    features: Features::empty(),
+                    limits: Limits::default(),
                     shader_validation: true,
                 },
                 None,
             )
             .await?;
 
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        let sc_desc = SwapChainDescriptor {
+            usage: TextureUsage::OUTPUT_ATTACHMENT,
+            format: TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: PresentMode::Mailbox,
         };
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::SampledTexture {
                             multisampled: false,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            dimension: TextureViewDimension::D2,
+                            component_type: TextureComponentType::Uint,
                         },
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Sampler { comparison: false },
                         count: None,
                     },
                 ],
@@ -106,36 +114,36 @@ impl Painter {
         let texture =
             Texture::from_bytes(&device, &queue, cartoon_bytes, "happy-tree-cartoon.png")?;
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                    resource: BindingResource::TextureView(&texture.view),
                 },
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                    resource: BindingResource::Sampler(&texture.sampler),
                 },
             ],
             label: Some("cartoon_bind_group"),
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: BufferUsage::VERTEX,
         });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: BufferUsage::INDEX,
         });
         let num_indices = INDICES.len() as u32;
 
         let pipeline = Pipeline::new(
             &device,
-            wgpu::TextureFormat::Bgra8UnormSrgb,
+            TextureFormat::Bgra8UnormSrgb,
             &texture_bind_group_layout,
         );
 
@@ -157,22 +165,22 @@ impl Painter {
     pub fn load_textures(&mut self, textures: &Vec<Vec<Bytes>>) -> Result<()> {
         let texture_bind_group_layout =
             self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     entries: &[
-                        wgpu::BindGroupLayoutEntry {
+                        BindGroupLayoutEntry {
                             binding: 0,
-                            visibility: wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::SampledTexture {
+                            visibility: ShaderStage::FRAGMENT,
+                            ty: BindingType::SampledTexture {
                                 multisampled: false,
-                                dimension: wgpu::TextureViewDimension::D2,
-                                component_type: wgpu::TextureComponentType::Uint,
+                                dimension: TextureViewDimension::D2,
+                                component_type: TextureComponentType::Uint,
                             },
                             count: None,
                         },
-                        wgpu::BindGroupLayoutEntry {
+                        BindGroupLayoutEntry {
                             binding: 1,
-                            visibility: wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler { comparison: false },
+                            visibility: ShaderStage::FRAGMENT,
+                            ty: BindingType::Sampler { comparison: false },
                             count: None,
                         },
                     ],
@@ -186,16 +194,16 @@ impl Painter {
             "happy-tree-cartoon.png",
         )?;
 
-        let cartoon_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let cartoon_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&cartoon_texture.view),
+                    resource: BindingResource::TextureView(&cartoon_texture.view),
                 },
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&cartoon_texture.sampler),
+                    resource: BindingResource::Sampler(&cartoon_texture.sampler),
                 },
             ],
             label: Some("cartoon_bind_group"),
@@ -217,14 +225,14 @@ impl Painter {
 
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            .create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+            let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
+                color_attachments: &[RenderPassColorAttachmentDescriptor {
                     attachment: &frame.output.view,
                     resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                    ops: Operations {
+                        load: LoadOp::Clear(Color {
                             r: 0.1,
                             g: 0.2,
                             b: 0.3,
