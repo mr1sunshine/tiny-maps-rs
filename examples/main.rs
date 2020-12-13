@@ -1,7 +1,12 @@
 use eyre::Result;
 use futures::executor::block_on;
-use winit::{dpi::PhysicalSize, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::WindowBuilder};
 use tiny_maps::Map;
+use winit::{
+    dpi::PhysicalSize,
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,6 +30,15 @@ async fn main() -> Result<()> {
                     } = input
                     {
                         *control_flow = ControlFlow::Exit
+                    } else if let KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        ..
+                    } = input
+                    {
+                        println!("Space pressed");
+                        map.set_data().expect("Shouldn't fail");
+                        window.request_redraw();
                     }
                 }
                 _ => {}

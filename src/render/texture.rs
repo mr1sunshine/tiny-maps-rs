@@ -1,5 +1,7 @@
-use image::GenericImageView;
 use eyre::Result;
+use image::io::Reader as ImageReader;
+use image::{DynamicImage, GenericImageView};
+use std::io::Cursor;
 
 pub(crate) struct Texture {
     pub texture: wgpu::Texture,
@@ -14,18 +16,23 @@ impl Texture {
         bytes: &[u8],
         label: &str,
     ) -> Result<Self> {
+        // let img = ImageReader::new(Cursor::new(bytes)).decode()?;
+        let img_format = image::guess_format(bytes);
+        println!("format = {:#?}", img_format);
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, Some(label))
+        println!("image = {:#?}", img.color());
+        Self::from_image(device, queue, img, Some(label))
     }
 
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        img: &image::DynamicImage,
+        img: image::DynamicImage,
         label: Option<&str>,
     ) -> Result<Self> {
-        let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
+        let rgba = img.into_rgba();
+        // let rgba = img.as_rgba8().unwrap();
 
         let size = wgpu::Extent3d {
             width: dimensions.0,
@@ -48,7 +55,7 @@ impl Texture {
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            rgba,
+            &rgba,
             wgpu::TextureDataLayout {
                 offset: 0,
                 bytes_per_row: 4 * dimensions.0,

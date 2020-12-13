@@ -1,41 +1,11 @@
 // use super::pipeline::Draw;
-use super::texture::Texture;
+use super::Pipeline;
+use super::Texture;
+use super::Vertex;
 use bytes::Bytes;
 use eyre::Result;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-unsafe impl bytemuck::Pod for Vertex {}
-unsafe impl bytemuck::Zeroable for Vertex {}
-
-impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        use std::mem;
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ],
-        }
-    }
-}
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -65,13 +35,12 @@ pub(crate) struct Painter {
     sc_desc: wgpu::SwapChainDescriptor,
     surface: wgpu::Surface,
     bind_group: wgpu::BindGroup,
-    // size: winit::dpi::PhysicalSize<u32>,
-    render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     #[allow(dead_code)]
     texture: Texture,
+    pipeline: Pipeline,
 }
 
 impl Painter {
@@ -86,7 +55,7 @@ impl Painter {
                 compatible_surface: Some(&surface),
             })
             .await
-            .expect("Failed to find an appropiate adapter");
+            .expect("Failed to find an appropriate adapter");
 
         // Create the logical device and command queue
         let (device, queue) = adapter
@@ -152,52 +121,6 @@ impl Painter {
             label: Some("cartoon_bind_group"),
         });
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("shader.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("shader.frag.spv"));
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main",
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: None,
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[Vertex::desc()],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-        });
-
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
@@ -210,6 +133,8 @@ impl Painter {
         });
         let num_indices = INDICES.len() as u32;
 
+        let pipeline = Pipeline::new(&device, &sc_desc, &texture_bind_group_layout);
+
         Ok(Self {
             device,
             queue,
@@ -221,32 +146,59 @@ impl Painter {
             vertex_buffer,
             index_buffer,
             num_indices,
-            render_pipeline,
+            pipeline,
         })
     }
 
     pub fn load_textures(&mut self, textures: &Vec<Vec<Bytes>>) -> Result<()> {
-        // let cartoon_texture = Texture::from_bytes(
-        //     &self.device,
-        //     &self.queue,
-        //     &textures[0][0],
-        //     "happy-tree-cartoon.png",
-        // )?;
+        let texture_bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStage::FRAGMENT,
+                            ty: wgpu::BindingType::SampledTexture {
+                                multisampled: false,
+                                dimension: wgpu::TextureViewDimension::D2,
+                                component_type: wgpu::TextureComponentType::Uint,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStage::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler { comparison: false },
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
 
-        // let cartoon_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     layout: &self.texture_bind_group_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(&cartoon_texture.view),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&cartoon_texture.sampler),
-        //         },
-        //     ],
-        //     label: Some("cartoon_bind_group"),
-        // });
+        let cartoon_texture = Texture::from_bytes(
+            &self.device,
+            &self.queue,
+            &textures[0][0],
+            "happy-tree-cartoon.png",
+        )?;
+
+        let cartoon_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&cartoon_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&cartoon_texture.sampler),
+                },
+            ],
+            label: Some("cartoon_bind_group"),
+        });
+
+        self.texture = cartoon_texture;
+        self.bind_group = cartoon_bind_group;
         Ok(())
     }
 
@@ -279,11 +231,8 @@ impl Painter {
                 }],
                 depth_stencil_attachment: None,
             });
-            // for pipeline in self.pipelines.iter() {
-            //     pipeline.draw(&mut rpass);
-            // }
 
-            rpass.set_pipeline(&self.render_pipeline);
+            rpass.set_pipeline(self.pipeline.get());
             rpass.set_bind_group(0, &self.bind_group, &[]);
             rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             rpass.set_index_buffer(self.index_buffer.slice(..));
@@ -294,8 +243,4 @@ impl Painter {
 
         Ok(())
     }
-
-    // pub fn set_pipelines(&mut self, pipelines: Vec<Rc<dyn Draw>>) {
-    //     self.pipelines = pipelines;
-    // }
 }

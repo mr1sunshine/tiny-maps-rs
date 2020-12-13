@@ -1,11 +1,10 @@
 mod network_manager;
-mod painter;
-mod texture;
+mod render;
 
 use bytes::Bytes;
 use eyre::Result;
 use network_manager::NetworkManager;
-use painter::Painter;
+use render::Painter;
 use winit::window::Window;
 
 const TILE_SIZE: u32 = 256;
@@ -39,6 +38,7 @@ impl Map {
             height,
         };
         map.load_tiles().await?;
+        println!("Map created");
         Ok(map)
     }
 
@@ -62,6 +62,12 @@ impl Map {
             .load_tile(corner_tile_x, corner_tile_y, self.zoom)
             .await?;
         self.tiles.push(vec![tile]);
+        println!("tiles loaded");
+        Ok(())
+    }
+
+    pub fn set_data(&mut self) -> Result<()> {
+        self.painter.load_textures(&self.tiles)?;
         Ok(())
     }
 }
