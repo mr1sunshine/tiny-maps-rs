@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use eyre::Result;
-use reqwest::{header::HeaderMap, Client, ClientBuilder, RequestBuilder};
+use reqwest::{header::HeaderMap, Client, ClientBuilder};
 
 #[derive(Debug)]
 pub(crate) struct NetworkManager {
