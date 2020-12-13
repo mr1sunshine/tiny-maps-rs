@@ -18,9 +18,7 @@ impl Texture {
     ) -> Result<Self> {
         // let img = ImageReader::new(Cursor::new(bytes)).decode()?;
         let img_format = image::guess_format(bytes);
-        println!("format = {:#?}", img_format);
         let img = image::load_from_memory(bytes)?;
-        println!("image = {:#?}", img.color());
         Self::from_image(device, queue, img, Some(label))
     }
 
