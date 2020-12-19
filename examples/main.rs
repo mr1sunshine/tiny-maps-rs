@@ -8,6 +8,8 @@ use winit::{
     window::WindowBuilder,
 };
 
+const HELSINKI: (f64, f64) = (24.945831, 60.192059);
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let event_loop = EventLoop::new();
@@ -15,7 +17,7 @@ async fn main() -> Result<()> {
     let w_id = window.id();
     window.set_inner_size(PhysicalSize::new(800, 800));
 
-    let mut map = Map::new(-0.15, 51.502, 15, window).await?;
+    let mut map = Map::new(&HELSINKI.into(), 15, window).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
