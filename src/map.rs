@@ -62,6 +62,7 @@ impl Map {
         let y0 = (mercator_y - height as f64 / 2.0).floor();
         let corner_tile_x = (x0 / TILE_SIZE as f64).floor() as u32;
         let corner_tile_y = (y0 / TILE_SIZE as f64).floor() as u32;
+        println!("TileId {:?} {:?}", corner_tile_x, corner_tile_y);
         let tile = nm.load_tile(corner_tile_x, corner_tile_y, zoom).await?;
         println!("tiles loaded");
         Ok(vec![vec![tile]])
@@ -78,6 +79,16 @@ impl Map {
 
     pub async fn set_zoom(&mut self, zoom: u32) -> Result<()> {
         self.zoom = zoom;
+        self.update().await?;
+        Ok(())
+    }
+
+    pub fn point(&self) -> Point<f64> {
+        self.point
+    }
+
+    pub async fn set_point(&mut self, point: Point<f64>) -> Result<()> {
+        self.point = point;
         self.update().await?;
         Ok(())
     }

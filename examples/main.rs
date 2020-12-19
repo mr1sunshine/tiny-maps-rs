@@ -55,6 +55,54 @@ async fn main() -> Result<()> {
                             Err(e) => println!("Failed to zoom out {}", e),
                         };
                     }
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Left),
+                        ..
+                    } => {
+                        let mut current_point = map.point();
+                        current_point.set_lng(current_point.lng() - 0.01);
+                        match block_on(map.set_point(current_point)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to set point {}", e),
+                        };
+                    }
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Right),
+                        ..
+                    } => {
+                        let mut current_point = map.point();
+                        current_point.set_lng(current_point.lng() + 0.005);
+                        match block_on(map.set_point(current_point)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to set point {}", e),
+                        };
+                    }
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Up),
+                        ..
+                    } => {
+                        let mut current_point = map.point();
+                        current_point.set_lat(current_point.lat() + 0.005);
+                        match block_on(map.set_point(current_point)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to set point {}", e),
+                        };
+                    }
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Down),
+                        ..
+                    } => {
+                        let mut current_point = map.point();
+                        current_point.set_lat(current_point.lat() - 0.01);
+                        match block_on(map.set_point(current_point)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to set point {}", e),
+                        };
+                    }
                     _ => (),
                 },
                 _ => {}
