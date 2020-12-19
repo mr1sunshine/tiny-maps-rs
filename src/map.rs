@@ -15,16 +15,17 @@ pub struct Map {
     nm: NetworkManager,
     width: u32,
     height: u32,
+    window: Window,
 }
 
 impl Map {
-    pub async fn new(lng: f64, lat: f64, zoom: u32, window: &Window) -> Result<Self> {
+    pub async fn new(lng: f64, lat: f64, zoom: u32, window: Window) -> Result<Self> {
         let nm = NetworkManager::new()?;
         let width = window.inner_size().width;
         let height = window.inner_size().height;
 
         let tiles = Map::load_tiles(zoom, lng, lat, width, height, &nm).await?;
-        let painter = Painter::new(window, &tiles).await?;
+        let painter = Painter::new(&window, &tiles).await?;
 
         let map = Self {
             lng,
@@ -34,6 +35,7 @@ impl Map {
             nm,
             width,
             height,
+            window,
         };
 
         println!("Map created");
@@ -69,6 +71,33 @@ impl Map {
 
     pub fn set_data(&mut self) -> Result<()> {
         // self.painter.load_textures(&self.tiles)?;
+        Ok(())
+    }
+
+    pub fn zoom(&self) -> u32 {
+        self.zoom
+    }
+
+    pub async fn set_zoom(&mut self, zoom: u32) -> Result<()> {
+        self.zoom = zoom;
+        self.update().await?;
+        Ok(())
+    }
+
+    async fn update(&mut self) -> Result<()> {
+        let tiles = Map::load_tiles(
+            self.zoom,
+            self.lng,
+            self.lat,
+            self.width,
+            self.height,
+            &self.nm,
+        )
+        .await?;
+
+        self.painter.load_textures(&tiles)?;
+
+        self.window.request_redraw();
         Ok(())
     }
 }

@@ -12,35 +12,49 @@ use winit::{
 async fn main() -> Result<()> {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop)?;
+    let w_id = window.id();
     window.set_inner_size(PhysicalSize::new(800, 800));
 
-    let mut map = Map::new(-0.15, 51.502, 15, &window).await?;
+    let mut map = Map::new(-0.15, 51.502, 15, window).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         match event {
-            Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
+            Event::WindowEvent { event, window_id } if window_id == w_id => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let KeyboardInput {
+                WindowEvent::KeyboardInput { input, .. } => match input {
+                    KeyboardInput {
                         state: ElementState::Pressed,
                         virtual_keycode: Some(VirtualKeyCode::Escape),
                         ..
-                    } = input
-                    {
-                        *control_flow = ControlFlow::Exit
-                    } else if let KeyboardInput {
+                    } => *control_flow = ControlFlow::Exit,
+                    KeyboardInput {
                         state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        virtual_keycode: Some(VirtualKeyCode::U),
                         ..
-                    } = input
-                    {
-                        println!("Space pressed");
-                        map.set_data().expect("Shouldn't fail");
-                        window.request_redraw();
+                    } => {
+                        match block_on(map.set_zoom(map.zoom() + 1)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to zoom in {}", e),
+                        };
                     }
-                }
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Y),
+                        ..
+                    } => {
+                        let current_zoom = map.zoom();
+                        if current_zoom == 0 {
+                            return;
+                        }
+                        match block_on(map.set_zoom(current_zoom - 1)) {
+                            Ok(_) => {}
+                            Err(e) => println!("Failed to zoom out {}", e),
+                        };
+                    }
+                    _ => (),
+                },
                 _ => {}
             },
             Event::RedrawRequested(_) => {
