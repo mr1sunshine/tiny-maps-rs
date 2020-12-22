@@ -24,6 +24,7 @@ anyhow = "1.0"
 image = "0.23"
 bytemuck = "1.4"
 geo = "0.16.0"
+derivative = "2.1.1"
 
 
 

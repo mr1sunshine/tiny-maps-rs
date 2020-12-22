@@ -1,8 +1,7 @@
-// use super::pipeline::Draw;
 use super::Pipeline;
 use super::Texture;
 use super::Vertex;
-use bytes::Bytes;
+use crate::tile::Tile;
 use eyre::Result;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -54,7 +53,7 @@ pub(crate) struct Painter {
 }
 
 impl Painter {
-    pub async fn new(window: &Window, textures: &[Vec<Bytes>]) -> Result<Self> {
+    pub async fn new(window: &Window, textures: &[Tile]) -> Result<Self> {
         let size = window.inner_size();
         let instance = Instance::new(BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
@@ -148,9 +147,9 @@ impl Painter {
         device: &Device,
         queue: &Queue,
         bind_group_layout: &BindGroupLayout,
-        textures: &[Vec<Bytes>],
+        textures: &[Tile],
     ) -> Result<(Texture, BindGroup)> {
-        let texture = Texture::from_bytes(device, queue, &textures[0][0], "texture")?;
+        let texture = Texture::from_bytes(device, queue, textures[0].data(), "texture")?;
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: bind_group_layout,
@@ -170,7 +169,7 @@ impl Painter {
         Ok((texture, bind_group))
     }
 
-    pub fn load_textures(&mut self, textures: &[Vec<Bytes>]) -> Result<()> {
+    pub fn load_textures(&mut self, textures: &[Tile]) -> Result<()> {
         let (texture, bind_group) = Painter::create_texture_and_bind_group(
             &self.device,
             &self.queue,

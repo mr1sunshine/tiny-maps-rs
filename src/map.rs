@@ -1,8 +1,10 @@
+use crate::tile::Tile;
+
 use super::network_manager::NetworkManager;
 use super::render::Painter;
 use bytes::Bytes;
 use eyre::Result;
-use futures::future::join_all;
+use futures::{future::join_all, FutureExt};
 use geo::Point;
 use winit::window::Window;
 
@@ -48,13 +50,22 @@ impl Map {
         Ok(())
     }
 
+    fn create_tile(
+        left: f64,
+        top: f64,
+        x: u32,
+        y: u32,
+    ) -> impl FnOnce(Result<Bytes>) -> Result<Tile> {
+        move |data| Ok(Tile::new(data?, left, top, x, y))
+    }
+
     async fn load_tiles(
         zoom: u32,
         point: &Point<f64>,
         width: u32,
         height: u32,
         nm: &NetworkManager,
-    ) -> Result<Vec<Vec<Bytes>>> {
+    ) -> Result<Vec<Tile>> {
         let tile_across = 2u32.pow(zoom);
         let world_size = TILE_SIZE * tile_across;
         let mercator_x = world_size as f64 * (point.lng() / 360.0 + 0.5);
@@ -69,24 +80,23 @@ impl Map {
         let mut tile_y = corner_tile_y;
         while ((tile_y * TILE_SIZE) as f64) < y0 + height as f64 {
             while ((tile_x * TILE_SIZE) as f64) < x0 + width as f64 {
-                println!(
-                    "TileId ({}, {}) left: {}px top: {}px",
-                    tile_x,
-                    tile_y,
-                    (tile_x * TILE_SIZE) as f64 - x0,
-                    (tile_y * TILE_SIZE) as f64 - y0
+                let left = (tile_x * TILE_SIZE) as f64 - x0;
+                let top = (tile_y * TILE_SIZE) as f64 - y0;
+                futures.push(
+                    nm.load_tile(tile_x, tile_y, zoom)
+                        .map(Map::create_tile(left, top, tile_x, tile_y)),
                 );
-                futures.push(nm.load_tile(tile_x, tile_y, zoom));
                 tile_x += 1;
             }
             tile_y += 1;
             tile_x = corner_tile_x;
         }
-        join_all(futures).await;
-        println!("tiles loaded");
-        let tile = nm.load_tile(corner_tile_x, corner_tile_y, zoom).await?;
-        println!("tile loaded");
-        Ok(vec![vec![tile]])
+        let tiles: Vec<_> = join_all(futures)
+            .await
+            .into_iter()
+            .map(Result::unwrap)
+            .collect();
+        Ok(tiles)
     }
 
     pub fn zoom(&self) -> u32 {
