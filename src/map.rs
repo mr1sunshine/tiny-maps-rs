@@ -2,6 +2,7 @@ use super::network_manager::NetworkManager;
 use super::render::Painter;
 use bytes::Bytes;
 use eyre::Result;
+use futures::future::join_all;
 use geo::Point;
 use winit::window::Window;
 
@@ -23,6 +24,7 @@ impl Map {
         let nm = NetworkManager::new()?;
         let width = window.inner_size().width;
         let height = window.inner_size().height;
+        println!("w: {} height: {}", width, height);
 
         let tiles = Map::load_tiles(zoom, point, width, height, &nm).await?;
         let painter = Painter::new(&window, &tiles).await?;
@@ -62,15 +64,29 @@ impl Map {
         let y0 = (mercator_y - height as f64 / 2.0).floor();
         let corner_tile_x = (x0 / TILE_SIZE as f64).floor() as u32;
         let corner_tile_y = (y0 / TILE_SIZE as f64).floor() as u32;
-        println!("TileId {:?} {:?}", corner_tile_x, corner_tile_y);
-        let tile = nm.load_tile(corner_tile_x, corner_tile_y, zoom).await?;
+        let mut futures = Vec::new();
+        let mut tile_x = corner_tile_x;
+        let mut tile_y = corner_tile_y;
+        while ((tile_y * TILE_SIZE) as f64) < y0 + height as f64 {
+            while ((tile_x * TILE_SIZE) as f64) < x0 + width as f64 {
+                println!(
+                    "TileId ({}, {}) left: {}px top: {}px",
+                    tile_x,
+                    tile_y,
+                    (tile_x * TILE_SIZE) as f64 - x0,
+                    (tile_y * TILE_SIZE) as f64 - y0
+                );
+                futures.push(nm.load_tile(tile_x, tile_y, zoom));
+                tile_x += 1;
+            }
+            tile_y += 1;
+            tile_x = corner_tile_x;
+        }
+        join_all(futures).await;
         println!("tiles loaded");
+        let tile = nm.load_tile(corner_tile_x, corner_tile_y, zoom).await?;
+        println!("tile loaded");
         Ok(vec![vec![tile]])
-    }
-
-    pub fn set_data(&mut self) -> Result<()> {
-        // self.painter.load_textures(&self.tiles)?;
-        Ok(())
     }
 
     pub fn zoom(&self) -> u32 {
