@@ -14,8 +14,8 @@ categories = ["multimedia"]
 
 [dependencies]
 eyre = "0.6.2"
-reqwest = { version = "0.10.8", features = ["blocking", "gzip"] }
-tokio = { version = "0.2.22", features = ["macros", "tcp", "dns", "io-util"] }
+hyper = "0.13.9"
+tokio = { version = "0.2.24", features = ["full"] }
 winit = "0.23.0"
 wgpu = "0.6.0"
 futures = "0.3.7"
@@ -25,6 +25,8 @@ image = "0.23"
 bytemuck = "1.4"
 geo = "0.16.0"
 derivative = "2.1.1"
+log = "0.4.0"
+env_logger = "0.8.2"
 
 
 

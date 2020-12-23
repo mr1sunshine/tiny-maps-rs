@@ -4,11 +4,14 @@ use super::network_manager::NetworkManager;
 use super::render::Painter;
 use bytes::Bytes;
 use eyre::Result;
-use futures::{future::join_all, FutureExt};
+use futures::{
+    future::{join_all, try_join_all},
+    FutureExt,
+};
 use geo::Point;
 use winit::window::Window;
 
-const TILE_SIZE: u32 = 256;
+const TILE_SIZE: u32 = 1024;
 const PI: f64 = std::f64::consts::PI;
 
 pub struct Map {
@@ -78,6 +81,7 @@ impl Map {
         let mut futures = Vec::new();
         let mut tile_x = corner_tile_x;
         let mut tile_y = corner_tile_y;
+        println!("Tile loading started");
         while ((tile_y * TILE_SIZE) as f64) < y0 + height as f64 {
             while ((tile_x * TILE_SIZE) as f64) < x0 + width as f64 {
                 let left = (tile_x * TILE_SIZE) as f64 - x0;
@@ -91,11 +95,8 @@ impl Map {
             tile_y += 1;
             tile_x = corner_tile_x;
         }
-        let tiles: Vec<_> = join_all(futures)
-            .await
-            .into_iter()
-            .map(Result::unwrap)
-            .collect();
+        let tiles = try_join_all(futures).await?;
+        println!("Tiles loaded: {:?}\n\n\n\n", tiles);
         Ok(tiles)
     }
 

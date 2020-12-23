@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use eyre::Result;
 use futures::executor::block_on;
 use tiny_maps::Map;
@@ -12,6 +15,8 @@ const HELSINKI: (f64, f64) = (24.945831, 60.192059);
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop)?;
     let w_id = window.id();

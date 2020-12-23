@@ -2,7 +2,7 @@ use eyre::Result;
 use image::GenericImageView;
 
 pub(crate) struct Texture {
-    pub texture: wgpu::Texture,
+    // pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
@@ -69,7 +69,7 @@ impl Texture {
         });
 
         Ok(Self {
-            texture,
+            // texture,
             view,
             sampler,
         })
