@@ -1,14 +1,11 @@
-use crate::tile::Tile;
-
 use super::network_manager::NetworkManager;
 use super::render::Painter;
+use crate::tile::Tile;
 use bytes::Bytes;
 use eyre::Result;
-use futures::{
-    future::{join_all, try_join_all},
-    FutureExt,
-};
+use futures::{future::try_join_all, FutureExt};
 use geo::Point;
+use log::info;
 use winit::window::Window;
 
 const TILE_SIZE: u32 = 1024;
@@ -29,7 +26,7 @@ impl Map {
         let nm = NetworkManager::new()?;
         let width = window.inner_size().width;
         let height = window.inner_size().height;
-        println!("w: {} height: {}", width, height);
+        info!("w: {} height: {}", width, height);
 
         let tiles = Map::load_tiles(zoom, point, width, height, &nm).await?;
         let painter = Painter::new(&window, &tiles).await?;
@@ -44,7 +41,7 @@ impl Map {
             window,
         };
 
-        println!("Map created");
+        info!("Map created");
         Ok(map)
     }
 
@@ -81,7 +78,6 @@ impl Map {
         let mut futures = Vec::new();
         let mut tile_x = corner_tile_x;
         let mut tile_y = corner_tile_y;
-        println!("Tile loading started");
         while ((tile_y * TILE_SIZE) as f64) < y0 + height as f64 {
             while ((tile_x * TILE_SIZE) as f64) < x0 + width as f64 {
                 let left = (tile_x * TILE_SIZE) as f64 - x0;
@@ -96,7 +92,6 @@ impl Map {
             tile_x = corner_tile_x;
         }
         let tiles = try_join_all(futures).await?;
-        println!("Tiles loaded: {:?}\n\n\n\n", tiles);
         Ok(tiles)
     }
 

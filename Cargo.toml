@@ -14,12 +14,12 @@ categories = ["multimedia"]
 
 [dependencies]
 eyre = "0.6.2"
-hyper = "0.13.9"
-tokio = { version = "0.2.24", features = ["full"] }
-winit = "0.23.0"
+hyper = {version = "0.14.0", features = ["full"]}
+tokio = { version = "1.0.0", features = ["full"] }
+winit = "0.24.0"
 wgpu = "0.6.0"
 futures = "0.3.7"
-bytes = "0.5.0"
+bytes = "1.0.0"
 anyhow = "1.0"
 image = "0.23"
 bytemuck = "1.4"

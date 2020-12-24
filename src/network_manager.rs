@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use eyre::Result;
+
 use hyper::{client::HttpConnector, Body, Client, Method, Request};
 
 #[derive(Debug)]
@@ -14,7 +15,6 @@ impl NetworkManager {
     }
 
     pub async fn load_tile(&self, x: u32, y: u32, z: u32) -> Result<Bytes> {
-        println!("Load tile {} {} {}", x, y, z);
         const NAME: &str = env!("CARGO_PKG_NAME");
         const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -27,11 +27,8 @@ impl NetworkManager {
             .header("User-Agent", user_agent)
             .body(Body::empty())?;
 
-        // headers.insert("Connection", "keep-alive".parse().unwrap());
         let res = self.client.request(req).await?;
-        println!("Load tile response recieved {} {} {}", x, y, z);
         let body = hyper::body::to_bytes(res.into_body()).await?;
-        println!("Load tile succeded {} {} {}", x, y, z);
         Ok(body)
     }
 }
