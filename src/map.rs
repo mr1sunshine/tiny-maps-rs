@@ -1,6 +1,6 @@
 use super::network_manager::NetworkManager;
 use super::render::Painter;
-use crate::tile::Tile;
+use crate::{tile::Tile, tile_coordinates::TileCoordinates, utils::Rect};
 use bytes::Bytes;
 use eyre::Result;
 use futures::{future::try_join_all, FutureExt};
@@ -51,12 +51,12 @@ impl Map {
     }
 
     fn create_tile(
-        left: f64,
-        top: f64,
         x: u32,
         y: u32,
+        z: u32,
+        coords: TileCoordinates,
     ) -> impl FnOnce(Result<Bytes>) -> Result<Tile> {
-        move |data| Ok(Tile::new(data?, left, top, x, y))
+        move |data| Ok(Tile::new(x, y, z, data?, coords))
     }
 
     async fn load_tiles(
@@ -78,13 +78,21 @@ impl Map {
         let mut futures = Vec::new();
         let mut tile_x = corner_tile_x;
         let mut tile_y = corner_tile_y;
-        while ((tile_y * TILE_SIZE) as f64) < y0 + height as f64 {
-            while ((tile_x * TILE_SIZE) as f64) < x0 + width as f64 {
+        // info!("x0 = {} y0 = {}", x0, y0);
+        while ((tile_y * TILE_SIZE) as f64) < (y0 + height as f64) {
+            while ((tile_x * TILE_SIZE) as f64) < (x0 + width as f64) {
                 let left = (tile_x * TILE_SIZE) as f64 - x0;
                 let top = (tile_y * TILE_SIZE) as f64 - y0;
+                let coords = TileCoordinates::new(
+                    left as f32,
+                    top as f32,
+                    width as f32,
+                    height as f32,
+                    TILE_SIZE as f32,
+                );
                 futures.push(
                     nm.load_tile(tile_x, tile_y, zoom)
-                        .map(Map::create_tile(left, top, tile_x, tile_y)),
+                        .map(Map::create_tile(tile_x, tile_y, zoom, coords)),
                 );
                 tile_x += 1;
             }

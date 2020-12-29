@@ -1,40 +1,14 @@
-use super::Pipeline;
-use super::Texture;
-use super::Vertex;
+use super::{grid::Grid, Pipeline};
 use crate::tile::Tile;
 use eyre::Result;
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt},
-    BackendBit, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferUsage, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
-    Limits, LoadOp, Operations, PowerPreference, PresentMode, Queue,
-    RenderPassColorAttachmentDescriptor, RenderPassDescriptor, RequestAdapterOptions, ShaderStage,
-    Surface, SwapChain, SwapChainDescriptor, TextureComponentType, TextureFormat, TextureUsage,
-    TextureViewDimension,
+    BackendBit, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp,
+    Operations, PowerPreference, PresentMode, Queue, RenderPassColorAttachmentDescriptor,
+    RenderPassDescriptor, RequestAdapterOptions, ShaderStage, Surface, SwapChain,
+    SwapChainDescriptor, TextureComponentType, TextureFormat, TextureUsage, TextureViewDimension,
 };
 use winit::window::Window;
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [1.0, 1.0, 0.0],
-        tex_coords: [1.0, 0.0],
-    }, // A
-    Vertex {
-        position: [-1.0, 1.0, 0.0],
-        tex_coords: [0.0, 0.0],
-    }, // B
-    Vertex {
-        position: [-1.0, -1.0, 0.0],
-        tex_coords: [0.0, 1.0],
-    }, // C
-    Vertex {
-        position: [1.0, -1.0, 0.0],
-        tex_coords: [1.0, 1.0],
-    }, // D
-];
-
-const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
 
 pub(crate) struct Painter {
     device: Device,
@@ -42,18 +16,13 @@ pub(crate) struct Painter {
     swap_chain: SwapChain,
     sc_desc: SwapChainDescriptor,
     surface: Surface,
-    bind_group: BindGroup,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-    num_indices: u32,
-    #[allow(dead_code)]
-    texture: Texture,
     pipeline: Pipeline,
     bind_group_layout: BindGroupLayout,
+    grid: Grid,
 }
 
 impl Painter {
-    pub async fn new(window: &Window, textures: &[Tile]) -> Result<Self> {
+    pub async fn new(window: &Window, tiles: &[Tile]) -> Result<Self> {
         let size = window.inner_size();
         let instance = Instance::new(BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
@@ -110,21 +79,7 @@ impl Painter {
             label: Some("texture_bind_group_layout"),
         });
 
-        let (texture, bind_group) =
-            Painter::create_texture_and_bind_group(&device, &queue, &bind_group_layout, textures)?;
-
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: BufferUsage::VERTEX,
-        });
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: BufferUsage::INDEX,
-        });
-        let num_indices = INDICES.len() as u32;
-
+        let grid = Grid::new(&device, &queue, &bind_group_layout, tiles)?;
         let pipeline = Pipeline::new(&device, TextureFormat::Bgra8UnormSrgb, &bind_group_layout);
 
         Ok(Self {
@@ -133,52 +88,14 @@ impl Painter {
             swap_chain,
             surface,
             sc_desc,
-            bind_group,
-            texture,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
             pipeline,
             bind_group_layout,
+            grid,
         })
     }
 
-    fn create_texture_and_bind_group(
-        device: &Device,
-        queue: &Queue,
-        bind_group_layout: &BindGroupLayout,
-        textures: &[Tile],
-    ) -> Result<(Texture, BindGroup)> {
-        let texture = Texture::from_bytes(device, queue, textures[0].data(), "texture")?;
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&texture.view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&texture.sampler),
-                },
-            ],
-            label: Some("bind_group"),
-        });
-
-        Ok((texture, bind_group))
-    }
-
-    pub fn load_textures(&mut self, textures: &[Tile]) -> Result<()> {
-        let (texture, bind_group) = Painter::create_texture_and_bind_group(
-            &self.device,
-            &self.queue,
-            &self.bind_group_layout,
-            textures,
-        )?;
-        self.texture = texture;
-        self.bind_group = bind_group;
-
+    pub fn load_textures(&mut self, tiles: &[Tile]) -> Result<()> {
+        self.grid = Grid::new(&self.device, &self.queue, &self.bind_group_layout, tiles)?;
         Ok(())
     }
 
@@ -195,7 +112,7 @@ impl Painter {
             .device
             .create_command_encoder(&CommandEncoderDescriptor { label: None });
         {
-            let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 color_attachments: &[RenderPassColorAttachmentDescriptor {
                     attachment: &frame.output.view,
                     resolve_target: None,
@@ -212,11 +129,13 @@ impl Painter {
                 depth_stencil_attachment: None,
             });
 
-            rpass.set_pipeline(self.pipeline.get());
-            rpass.set_bind_group(0, &self.bind_group, &[]);
-            rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            rpass.set_index_buffer(self.index_buffer.slice(..));
-            rpass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.set_pipeline(self.pipeline.get());
+            for (index, bind_group) in self.grid.bind_groups.iter().enumerate() {
+                render_pass.set_bind_group(0, &bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.grid.vertex_buffers[index].slice(..));
+                render_pass.set_index_buffer(self.grid.index_buffer.slice(..));
+                render_pass.draw_indexed(0..self.grid.num_indices, 0, 0..1);
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));

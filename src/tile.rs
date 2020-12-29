@@ -1,37 +1,34 @@
+use crate::{tile_coordinates::TileCoordinates, utils::Rect};
 use bytes::Bytes;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct Tile {
-    #[derivative(Debug = "ignore")]
-    data: Bytes,
-    top: f64,
-    left: f64,
     x: u32,
     y: u32,
+    _z: u32,
+    #[derivative(Debug = "ignore")]
+    data: Bytes,
+    coords: TileCoordinates,
 }
 
 impl Tile {
-    pub fn new(data: Bytes, top: f64, left: f64, x: u32, y: u32) -> Tile {
+    pub fn new(x: u32, y: u32, z: u32, data: Bytes, coords: TileCoordinates) -> Tile {
         Self {
-            data,
-            top,
-            left,
             x,
             y,
+            _z: z,
+            data,
+            coords,
         }
+    }
+
+    pub fn coords(&self) -> &TileCoordinates {
+        &self.coords
     }
 
     pub fn data(&self) -> &[u8] {
         &self.data[..]
-    }
-
-    pub fn top(&self) -> f64 {
-        self.top
-    }
-
-    pub fn left(&self) -> f64 {
-        self.left
     }
 
     pub fn x(&self) -> u32 {
