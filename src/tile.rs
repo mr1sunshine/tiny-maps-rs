@@ -4,16 +4,16 @@ use bytes::Bytes;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct Tile {
-    x: u32,
-    y: u32,
-    _z: u32,
+    x: f32,
+    y: f32,
+    _z: f32,
     #[derivative(Debug = "ignore")]
     data: Bytes,
     coords: TileCoordinates,
 }
 
 impl Tile {
-    pub fn new(x: u32, y: u32, z: u32, data: Bytes, coords: TileCoordinates) -> Tile {
+    pub fn new(x: f32, y: f32, z: f32, data: Bytes, coords: TileCoordinates) -> Tile {
         Self {
             x,
             y,
@@ -31,11 +31,11 @@ impl Tile {
         &self.data[..]
     }
 
-    pub fn x(&self) -> u32 {
+    pub fn x(&self) -> f32 {
         self.x
     }
 
-    pub fn y(&self) -> u32 {
+    pub fn y(&self) -> f32 {
         self.y
     }
 }

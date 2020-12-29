@@ -3,21 +3,22 @@ use log::{error, info};
 use tiny_maps::Map;
 use tokio::sync::mpsc;
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-const HELSINKI: (f64, f64) = (24.945831, 60.192059);
+const HELSINKI: (f32, f32) = (24.945831, 60.192059);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop)?;
-    window.set_inner_size(PhysicalSize::new(800, 800));
+    let window = WindowBuilder::new()
+        .with_inner_size(PhysicalSize::new(1000, 1000))
+        .build(&event_loop)?;
     let (tx, mut rx) = mpsc::channel(32);
 
     let mut map = Map::new(&HELSINKI.into(), 15, window).await?;

@@ -14,11 +14,14 @@ impl NetworkManager {
         Ok(Self { client })
     }
 
-    pub async fn load_tile(&self, x: u32, y: u32, z: u32) -> Result<Bytes> {
+    pub async fn load_tile(&self, x: f32, y: f32, z: f32) -> Result<Bytes> {
         const NAME: &str = env!("CARGO_PKG_NAME");
         const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-        let url = format!("http://tile.osm.org/{}/{}/{}.png", z, x, y);
+        let url = format!(
+            "http://tile.osm.org/{}/{}/{}.png",
+            z as u32, x as u32, y as u32
+        );
         let user_agent = format!("{}/{}", NAME, VERSION);
 
         let req = Request::builder()
