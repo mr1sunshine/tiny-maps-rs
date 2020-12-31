@@ -1,11 +1,12 @@
 use super::network_manager::NetworkManager;
 use super::render::Painter;
-use crate::{tile::Tile, tile_coordinates::TileCoordinates, utils::Rect};
+use crate::{tile::Tile, tile_coordinates::TileCoordinates};
 use bytes::Bytes;
 use eyre::Result;
 use futures::{future::try_join_all, FutureExt};
 use geo::Point;
-use log::info;
+use log::{debug, info};
+use std::time::{Duration, Instant};
 use winit::{dpi::PhysicalSize, window::Window};
 
 const TILE_SIZE: f32 = 256.0;
@@ -50,7 +51,11 @@ impl Map {
     }
 
     pub async fn render(&mut self) -> Result<()> {
+        let now = Instant::now();
+
         self.painter.render()?;
+        debug!("Render took {} ms", now.elapsed().as_millis());
+
         Ok(())
     }
 
@@ -70,6 +75,7 @@ impl Map {
         height: f32,
         nm: &NetworkManager,
     ) -> Result<Vec<Tile>> {
+        let now = Instant::now();
         let tile_across = 2f32.powf(zoom);
         let world_size = TILE_SIZE * tile_across;
         let mercator_x = world_size * (point.lng() / 360.0 + 0.5);
@@ -98,6 +104,7 @@ impl Map {
             tile_x = corner_tile_x;
         }
         let tiles = try_join_all(futures).await?;
+        debug!("Tile loading took {} ms", now.elapsed().as_millis());
         Ok(tiles)
     }
 
@@ -122,12 +129,14 @@ impl Map {
     }
 
     async fn update(&mut self) -> Result<()> {
+        let now = Instant::now();
         let tiles =
             Map::load_tiles(self.zoom, &self.point, self.width, self.height, &self.nm).await?;
 
         self.painter.load_textures(&tiles)?;
 
         self.window.request_redraw();
+        debug!("Update took {} ms", now.elapsed().as_millis());
         Ok(())
     }
 }

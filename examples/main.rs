@@ -1,19 +1,22 @@
+use env_logger::TimestampPrecision;
 use eyre::Result;
 use log::{error, info};
 use tiny_maps::Map;
 use tokio::sync::mpsc;
 use winit::{
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-const HELSINKI: (f32, f32) = (24.945831, 60.192059);
+const HELSINKI: (f32, f32) = (24.945831, 60.192_06);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
+    env_logger::builder()
+        .format_timestamp(Some(TimestampPrecision::Millis))
+        .init();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -25,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
+            info!("tokio event {:?}", event);
             match event {
                 Event::RedrawRequested(_) => {
                     info!("redraw requested");
@@ -104,11 +108,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     event_loop.run(move |event, _event_loop, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::Poll;
 
-        let mut handled = false;
-        if let Event::WindowEvent { event, .. } = &event {
-            match event {
+        let mut handle = false;
+        // info!("event {:?}", event);
+        match &event {
+            Event::RedrawRequested(_) => handle = true,
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested
                 | WindowEvent::Destroyed
                 | WindowEvent::KeyboardInput {
@@ -121,13 +127,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ..
                 } => {
                     *control_flow = ControlFlow::Exit;
-                    handled = true;
                 }
-                _ => (),
-            }
+                _ => handle = true,
+            },
+            _ => (),
         }
 
-        if !handled {
+        if handle {
             let static_event = event
                 .to_static()
                 .expect("We should always get static lifetime");

@@ -1,12 +1,13 @@
+use std::time::Instant;
+
 use super::{texture::Texture, vertex::Vertex};
 use crate::tile::Tile;
 use eyre::Result;
-use log::info;
-use std::convert::TryInto;
+use log::debug;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Buffer,
-    BufferUsage, Device, Queue, RenderPass,
+    BufferUsage, Device, Queue,
 };
 
 const INDICES: &[u16] = &[0, 1, 3, 1, 2, 3];
@@ -26,6 +27,7 @@ impl Grid {
         bind_group_layout: &BindGroupLayout,
         tiles: &[Tile],
     ) -> Result<Self> {
+        let now = Instant::now();
         let mut bind_groups = Vec::new();
         let mut textures = Vec::new();
         let mut vertex_buffers = Vec::new();
@@ -76,6 +78,7 @@ impl Grid {
             usage: BufferUsage::INDEX,
         });
         let num_indices = INDICES.len() as u32;
+        debug!("New grid took {} ms", now.elapsed().as_millis());
         Ok(Self {
             bind_groups,
             textures,

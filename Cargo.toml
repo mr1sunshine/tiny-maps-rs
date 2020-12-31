@@ -16,7 +16,7 @@ categories = ["multimedia"]
 eyre = "0.6.2"
 hyper = {version = "0.14.0", features = ["full"]}
 tokio = { version = "1.0.0", features = ["full"] }
-winit = "0.24.0"
+winit = { git = "https://github.com/mr1sunshine/winit.git", branch = "mr1sunshine/fix-macos-request-redraw" }
 wgpu = "0.6.0"
 futures = "0.3.7"
 bytes = "1.0.0"

@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-
 #[derive(Debug, PartialEq)]
 pub(crate) struct Rect {
     left: f32,

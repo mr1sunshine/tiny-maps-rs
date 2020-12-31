@@ -1,4 +1,4 @@
-use crate::{tile_coordinates::TileCoordinates, utils::Rect};
+use crate::tile_coordinates::TileCoordinates;
 use bytes::Bytes;
 
 #[derive(Derivative)]

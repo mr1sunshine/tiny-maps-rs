@@ -1,6 +1,9 @@
+use std::time::Instant;
+
 use super::{grid::Grid, Pipeline};
 use crate::tile::Tile;
 use eyre::Result;
+use log::debug;
 use wgpu::{
     BackendBit, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
     Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp,
@@ -95,7 +98,9 @@ impl Painter {
     }
 
     pub fn load_textures(&mut self, tiles: &[Tile]) -> Result<()> {
+        let now = Instant::now();
         self.grid = Grid::new(&self.device, &self.queue, &self.bind_group_layout, tiles)?;
+        debug!("Load textures took {} ms", now.elapsed().as_millis());
         Ok(())
     }
 
