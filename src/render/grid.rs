@@ -28,15 +28,11 @@ impl Grid {
         tiles: &[Tile],
     ) -> Result<Self> {
         let now = Instant::now();
-        let mut bind_groups = Vec::new();
-        let mut textures = Vec::new();
-        let mut vertex_buffers = Vec::new();
+        let mut bind_groups = Vec::with_capacity(tiles.len());
+        let mut textures = Vec::with_capacity(tiles.len());
+        let mut vertex_buffers = Vec::with_capacity(tiles.len());
 
         for tile in tiles {
-            // if tile.x() != 18654 || tile.y() != 9481 {
-            //     continue;
-            // }
-            // info!("tile {:#?}", tile);
             let (texture, bind_group) =
                 Grid::create_texture_and_bind_group(device, queue, bind_group_layout, tile)?;
             bind_groups.push(bind_group);
@@ -46,23 +42,19 @@ impl Grid {
                 Vertex {
                     position: [coords.shader_coords.2, coords.shader_coords.1, 0.0],
                     tex_coords: [coords.texture_coords.2, coords.texture_coords.1],
-                },
+                }, // B
                 Vertex {
                     position: [coords.shader_coords.0, coords.shader_coords.1, 0.0],
                     tex_coords: [coords.texture_coords.0, coords.texture_coords.1],
-                },
+                }, // A
                 Vertex {
                     position: [coords.shader_coords.0, coords.shader_coords.3, 0.0],
                     tex_coords: [coords.texture_coords.0, coords.texture_coords.3],
-                },
+                }, // C
                 Vertex {
                     position: [coords.shader_coords.2, coords.shader_coords.3, 0.0],
                     tex_coords: [coords.texture_coords.2, coords.texture_coords.3],
-                },
-                // Vertex::new(&tile.right_top()),    // B
-                // Vertex::new(&tile.left_top()),     // A
-                // Vertex::new(&tile.left_bottom()),  // C
-                // Vertex::new(&tile.right_bottom()), // D
+                }, // D
             ];
             let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
                 label: None,
