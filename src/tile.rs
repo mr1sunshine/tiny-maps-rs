@@ -1,25 +1,21 @@
-use crate::tile_coordinates::TileCoordinates;
+use crate::{tile_coordinates::TileCoordinates, tile_id::TileId};
 use bytes::Bytes;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct Tile {
-    x: f32,
-    y: f32,
-    _z: f32,
+    id: TileId,
     #[derivative(Debug = "ignore")]
     data: Bytes,
     coords: TileCoordinates,
 }
 
 impl Tile {
-    pub fn new(x: f32, y: f32, z: f32, data: Bytes, coords: TileCoordinates) -> Tile {
+    pub fn new(id: &TileId, data: Bytes, coords: &TileCoordinates) -> Tile {
         Self {
-            x,
-            y,
-            _z: z,
+            id: id.clone(),
             data,
-            coords,
+            coords: coords.clone(),
         }
     }
 
@@ -29,13 +25,5 @@ impl Tile {
 
     pub fn data(&self) -> &[u8] {
         &self.data[..]
-    }
-
-    pub fn x(&self) -> f32 {
-        self.x
-    }
-
-    pub fn y(&self) -> f32 {
-        self.y
     }
 }

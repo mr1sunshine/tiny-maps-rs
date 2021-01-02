@@ -8,7 +8,7 @@ fn to_cartesian_y(y: f32) -> f32 {
     (1.0 / 2.0 - y) * 2.0
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct TileCoordinates {
     pub shader_coords: (f32, f32, f32, f32),
     pub texture_coords: (f32, f32, f32, f32),
