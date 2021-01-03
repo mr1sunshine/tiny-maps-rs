@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
-            info!("tokio event {:?}", event);
+            // info!("tokio event {:?}", event);
             match event {
                 Event::RedrawRequested(_) => {
                     info!("redraw requested");

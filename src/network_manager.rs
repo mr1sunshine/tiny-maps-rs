@@ -1,10 +1,8 @@
+use crate::tile_id::TileId;
 use bytes::Bytes;
 use eyre::Result;
-
 use hyper::{client::HttpConnector, Body, Client, Method, Request};
-use log::info;
-
-use crate::tile_id::TileId;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub(crate) struct NetworkManager {
@@ -17,7 +15,7 @@ impl NetworkManager {
         Ok(Self { client })
     }
 
-    pub async fn load_tile(&self, id: &TileId) -> Result<Bytes> {
+    pub async fn load_tile(&self, id: &TileId) -> Result<(TileId, Arc<Bytes>)> {
         const NAME: &str = env!("CARGO_PKG_NAME");
         const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -31,7 +29,7 @@ impl NetworkManager {
             .body(Body::empty())?;
 
         let res = self.client.request(req).await?;
-        let body = hyper::body::to_bytes(res.into_body()).await?;
-        Ok(body)
+        let body = Arc::new(hyper::body::to_bytes(res.into_body()).await?);
+        Ok((id.clone(), body))
     }
 }

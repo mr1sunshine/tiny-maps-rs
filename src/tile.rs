@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{tile_coordinates::TileCoordinates, tile_id::TileId};
 use bytes::Bytes;
 
@@ -6,12 +8,12 @@ use bytes::Bytes;
 pub(crate) struct Tile {
     id: TileId,
     #[derivative(Debug = "ignore")]
-    data: Bytes,
+    data: Arc<Bytes>,
     coords: TileCoordinates,
 }
 
 impl Tile {
-    pub fn new(id: &TileId, data: Bytes, coords: &TileCoordinates) -> Tile {
+    pub fn new(id: &TileId, data: Arc<Bytes>, coords: &TileCoordinates) -> Tile {
         Self {
             id: id.clone(),
             data,

@@ -3,10 +3,11 @@ use super::render::Painter;
 use crate::{tile::Tile, tile_coordinates::TileCoordinates, tile_id::TileId};
 use bytes::Bytes;
 use eyre::Result;
-use futures::{future::try_join_all, FutureExt};
+use futures::future::try_join_all;
 use geo::Point;
 use log::{debug, info};
-use std::time::Instant;
+use std::{collections::HashMap, sync::Arc, time::Instant};
+use tokio::sync::Mutex;
 use winit::{dpi::PhysicalSize, window::Window};
 
 const TILE_SIZE: f32 = 256.0;
@@ -20,6 +21,7 @@ pub struct Map {
     width: f32,
     height: f32,
     window: Window,
+    tile_cache: Arc<Mutex<HashMap<TileId, Arc<Bytes>>>>,
 }
 
 struct TileInfo {
@@ -36,7 +38,8 @@ impl Map {
         let height = height as f32 / scale_factor;
 
         let zoom = zoom as f32;
-        let tiles = Map::load_tiles(zoom, point, width, height, &nm).await?;
+        let tile_cache = Arc::new(Mutex::new(HashMap::new()));
+        let tiles = Map::load_tiles(zoom, point, width, height, &nm, tile_cache.clone()).await?;
         let painter = Painter::new(&window, &tiles).await?;
 
         let map = Self {
@@ -47,6 +50,7 @@ impl Map {
             width,
             height,
             window,
+            tile_cache,
         };
 
         info!("Map created");
@@ -62,34 +66,38 @@ impl Map {
         Ok(())
     }
 
-    fn create_tile<'a>(
-        id: &'a TileId,
-        coords: &'a TileCoordinates,
-    ) -> impl FnOnce(Result<Bytes>) -> Result<Tile> + 'a {
-        move |data| Ok(Tile::new(id, data?, coords))
-    }
-
     async fn load_tiles(
         zoom: f32,
         point: &Point<f32>,
         width: f32,
         height: f32,
         nm: &NetworkManager,
+        cache: Arc<Mutex<HashMap<TileId, Arc<Bytes>>>>,
     ) -> Result<Vec<Tile>> {
         let now = Instant::now();
         let required_tiles = Map::create_required_tile_infos(zoom, point, width, height);
-
+        let mut lock = cache.lock().await;
+        let to_download = { Map::not_available_tiles(&(*lock), &required_tiles) };
         let mut futures = Vec::new();
-        for tile in &required_tiles {
-            futures.push(
-                nm.load_tile(&tile.id)
-                    .map(Map::create_tile(&tile.id, &tile.coords)),
-            );
+        for id in &to_download {
+            let load_tile_future = nm.load_tile(id);
+            futures.push(load_tile_future);
         }
 
-        let tiles = try_join_all(futures).await?;
+        let new_tiles = try_join_all(futures).await?;
+        for new_tile in new_tiles {
+            lock.insert(new_tile.0, new_tile.1);
+        }
         debug!("Tile loading took {} ms", now.elapsed().as_millis());
-        Ok(tiles)
+        let tiles: Result<Vec<_>, _> = required_tiles
+            .into_iter()
+            .map(|t| {
+                let data = lock.get(&t.id).unwrap().clone();
+                Ok(Tile::new(&t.id, data, &t.coords))
+            })
+            .collect();
+
+        tiles
     }
 
     pub fn zoom(&self) -> u32 {
@@ -114,8 +122,15 @@ impl Map {
 
     async fn update(&mut self) -> Result<()> {
         let now = Instant::now();
-        let tiles =
-            Map::load_tiles(self.zoom, &self.point, self.width, self.height, &self.nm).await?;
+        let tiles = Map::load_tiles(
+            self.zoom,
+            &self.point,
+            self.width,
+            self.height,
+            &self.nm,
+            self.tile_cache.clone(),
+        )
+        .await?;
 
         self.painter.load_textures(&tiles)?;
 
@@ -168,5 +183,20 @@ impl Map {
         }
 
         tiles
+    }
+
+    fn not_available_tiles(
+        cache: &HashMap<TileId, Arc<Bytes>>,
+        required: &[TileInfo],
+    ) -> Vec<TileId> {
+        let mut out = Vec::new();
+
+        for tile in required {
+            if !cache.contains_key(&tile.id) {
+                out.push(tile.id.clone());
+            }
+        }
+
+        out
     }
 }
