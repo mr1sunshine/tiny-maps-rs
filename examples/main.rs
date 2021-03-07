@@ -37,8 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(e) => error!("Failed to render {}", e),
                     }
                 }
-                Event::WindowEvent { event, .. } => {
-                    if let WindowEvent::KeyboardInput {
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
                                 state: ElementState::Pressed,
@@ -46,8 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 ..
                             },
                         ..
-                    } = event
-                    {
+                    } => {
                         use VirtualKeyCode::*;
                         match key {
                             U => {
@@ -101,14 +100,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             _ => {}
                         }
                     }
-                }
+                    WindowEvent::Resized(new_size) => {
+                        match tokio::try_join!(map.update_window_size(&new_size)) {
+                            Ok(_) => {}
+                            Err(e) => error!("Failed to update window size {}", e),
+                        }
+                    }
+                    _ => (),
+                },
                 _ => (),
             }
         }
     });
 
     event_loop.run(move |event, _event_loop, control_flow| {
-        *control_flow = ControlFlow::Poll;
+        *control_flow = ControlFlow::Wait;
 
         let mut handle = false;
         // info!("event {:?}", event);

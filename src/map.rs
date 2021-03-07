@@ -120,6 +120,14 @@ impl Map {
         Ok(())
     }
 
+    pub async fn update_window_size(&mut self, size: &PhysicalSize<u32>) -> Result<()> {
+        let scale_factor = self.window.scale_factor() as f32;
+        self.width = size.width as f32 / scale_factor;
+        self.height = size.height as f32 / scale_factor;
+        self.update().await?;
+        Ok(())
+    }
+
     async fn update(&mut self) -> Result<()> {
         let now = Instant::now();
         let tiles = Map::load_tiles(
